@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>課金パックマスタデータCSVビューア</title>
+<!-- Tailwind CSS CDN -->
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+/* Interフォントを適用 */
+body {
+font-family: "Inter", sans-serif;
+}
+/* JSON表示の整形用 */
+.prize-json-output {
+white-space: pre-wrap; /* 改行を保持し、必要に応じて自動改行 */
+/* word-break: break-word; を削除し、単語内での改行を防ぎます */
+background-color: #f9fafb;
+border-radius: 0.5rem;
+padding: 0.75rem;
+margin-top: 0.5rem;
+font-size: 0.875rem; /* text-sm */
+line-height: 1.25rem; /* leading-5 */
+}
+/* テーブルのセル内のテキストを中央揃えにしない */
+.text-left-important {
+text-align: left !important;
+}
+/* テーブルのヘッダーを固定するためのスタイル（必要に応じて） */
+.table-container {
+max-height: 600px; /* スクロール可能な高さを設定 */
+overflow-y: auto; /* 縦スクロールを有効にする */
+}
+.sticky-header th {
+position: sticky;
+top: 0;
+background-color: #f3f4f6; /* ヘッダーの背景色 */
+z-index: 10; /* 他のコンテンツの上に表示 */
+}
+</style>
+</head>
+<body class="bg-gray-100 p-6">
+<div class="max-w-7xl mx-auto bg-white rounded-lg shadow-xl p-8">
+<h1 class="text-4xl font-extrabold text-center text-gray-800 mb-8">
+課金パックマスタデータCSVビューア
+</h1>
+
+<!-- レイアウトを縦並びに変更 (grid-cols-1) -->
+<div class="grid grid-cols-1 gap-8 mb-12">
+<!-- m_billing_reward_bonus CSVセクション -->
+<div class="bg-gray-50 p-6 rounded-lg shadow-md">
+<h2 class="text-2xl font-bold text-gray-700 mb-4">
+m_billing_reward_bonus.csv
+</h2>
+<label for="bonusFile" class="block text-gray-700 text-sm font-bold mb-2">
+ファイルを選択してください:
+</label>
+<input type="file" id="bonusFile" accept=".csv" class="block w-full text-sm text-gray-900
+file:mr-4 file:py-2 file:px-4
+file:rounded-full file:border-0
+file:text-sm file:font-semibold
+file:bg-blue-50 file:text-blue-700
+hover:file:bg-blue-100
+mb-4">
+<button id="loadBonusCsv" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg
+transition duration-300 ease-in-out transform hover:scale-105 shadow-lg">
+CSVを読み込む
+</button>
+<div id="bonusOutput" class="mt-6">
+<!-- CSVデータがここに表示されます -->
+</div>
+</div>
+
+<!-- m_billing_reward_bonus_matching CSVセクション -->
+<div class="bg-gray-50 p-6 rounded-lg shadow-md">
+<h2 class="text-2xl font-bold text-gray-700 mb-4">
+m_billing_reward_bonus_matching.csv
+</h2>
+<label for="matchingFile" class="block text-gray-700 text-sm font-bold mb-2">
+ファイルを選択してください:
+</label>
+<input type="file" id="matchingFile" accept=".csv" class="block w-full text-sm text-gray-900
+file:mr-4 file:py-2 file:px-4
+file:rounded-full file:border-0
+file:text-sm file:font-semibold
+file:bg-blue-50 file:text-blue-700
+hover:file:bg-blue-100
+mb-4">
+<button id="loadMatchingCsv" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg
+transition duration-300 ease-in-out transform hover:scale-105 shadow-lg">
+CSVを読み込む
+</button>
+<div id="matchingOutput" class="mt-6">
+<!-- CSVデータがここに表示されます -->
+</div>
+</div>
+</div>
+</div>
+
+<script>
+// mBillingRewardId と OS/金額 のマッピング
+const mBillingRewardMap = {
+1: { os: "IOS", amount: "160円" }, 2: { os: "IOS", amount: "480円" },
+3: { os: "IOS", amount: "800円" }, 4: { os: "IOS", amount: "1200円" },
+5: { os: "IOS", amount: "3200円" }, 6: { os: "IOS", amount: "4900円" },
+7: { os: "IOS", amount: "10000円" }, 8: { os: "IOS", amount: "11800円" },
+9: { os: "IOS", amount: "15800円" }, 10: { os: "Android", amount: "160円" },
+11: { os: "Android", amount: "480円" }, 12: { os: "Android", amount: "800円" },
+13: { os: "Android", amount: "1200円" }, 14: { os: "Android", amount: "3200円" },
+15: { os: "Android", amount: "4900円" }, 16: { os: "Android", amount: "10000円" },
+17: { os: "Android", amount: "11800円" }, 18: { os: "Android", amount: "15800円" },
+19: { os: "IOS", amount: "320円" }, 20: { os: "Android", amount: "320円" },
+21: { os: "IOS", amount: "0円" }, 22: { os: "Android", amount: "0円" },
+23: { os: "IOS", amount: "160円" }, 24: { os: "IOS", amount: "480円" },
+25: { os: "IOS", amount: "800円" }, 26: { os: "IOS", amount: "1200円" },
+27: { os: "IOS", amount: "3200円" }, 28: { os: "IOS", amount: "4900円" },
+29: { os: "IOS", amount: "10000円" }, 30: { os: "IOS", amount: "11800円" },
+31: { os: "IOS", amount: "15800円" }, 32: { os: "Android", amount: "160円" },
+33: { os: "Android", amount: "480円" }, 34: { os: "Android", amount: "800円" },
+35: { os: "Android", amount: "1200円" }, 36: { os: "Android", amount: "3200円" },
+37: { os: "Android", amount: "4900円" }, 38: { os: "Android", amount: "10000円" },
+39: { os: "Android", amount: "11800円" }, 40: { os: "Android", amount: "15800円" },
+41: { os: "IOS", amount: "320円" }, 42: { os: "Android", amount: "320円" },
+};
+
+/**
+* CSVの行をパースする関数。引用符で囲まれたフィールド内のカンマとエスケープされた引用符 ("") を処理します。
+* @param {string} line - パースするCSVの行
+* @returns {string[]} パースされたフィールドの配列
+*/
+function parseCsvLine(line) {
+const fields = [];
+let inQuote = false;
+let currentField = '';
+
+for (let i = 0; i < line.length; i++) {
+const char = line[i];
+
+if (char === '"') {
+// エスケープされた引用符 ("") の処理
+if (inQuote && i + 1 < line.length && line[i + 1] === '"') {
+currentField += '"';
+i++; // 次の引用符をスキップ
+} else {
+inQuote = !inQuote; // 引用符の開始または終了
+}
+} else if (char === ',' && !inQuote) {
+// 引用符の外側のカンマは区切り文字
+fields.push(currentField);
+currentField = '';
+} else {
+// 通常の文字を現在のフィールドに追加
+currentField += char;
+}
+}
+fields.push(currentField); // 最後のフィールドを追加
+return fields;
+}
+
+/**
+* m_billing_reward_bonus.csv を処理し、表示する関数
+* @param {string} csvText - CSVファイルのテキスト内容
+*/
+function processBonusCsv(csvText) {
+const outputDiv = document.getElementById('bonusOutput');
+outputDiv.innerHTML = ''; // 既存の表示をクリア
+
+const lines = csvText.trim().split(/\r?\n/);
+if (lines.length === 0) {
+outputDiv.innerHTML = '<p class="text-red-500">CSVファイルにデータがありません。</p>';
+return;
+}
+
+// テーブル要素を作成
+const tableContainer = document.createElement('div');
+tableContainer.className = 'table-container overflow-x-auto'; // 横スクロール対応
+const table = document.createElement('table');
+table.className = 'min-w-full divide-y divide-gray-200 shadow-sm rounded-lg overflow-hidden';
+tableContainer.appendChild(table);
+
+// ヘッダー行
+const thead = document.createElement('thead');
+thead.className = 'bg-gray-200 sticky-header';
+const headerRow = document.createElement('tr');
+const headers = [
+id', 'adminName', 'name', 'groupName', 'description', 'appealText',
+priority', 'stepGroup', 'stepNumber', 'prizeJson (mPointId: value)',
+releaseDatetime', 'closedDatetime', 'buyLimit'
+];
+headers.forEach(headerText => {
+const th = document.createElement('th');
+th.className = 'px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider';
+th.textContent = headerText;
+headerRow.appendChild(th);
+});
+thead.appendChild(headerRow);
+table.appendChild(thead);
+
+// ボディ
+const tbody = document.createElement('tbody');
+tbody.className = 'bg-white divide-y divide-gray-200';
+table.appendChild(tbody);
+
+lines.forEach((line, index) => {
+if (!line.trim()) return; // 空行をスキップ
+
+const fields = parseCsvLine(line);
+
+// 必要なカラムのインデックス
+const id = fields[0];
+const adminName = fields[1];
+const name = fields[2];
+const groupName = fields[3];
+const description = fields[4];
+const appealText = fields[5];
+const priority = fields[10];
+const stepGroup = fields[11];
+const stepNumber = fields[12];
+const prizeJsonRaw = fields[13];
+const releaseDatetime = fields[17];
+const closedDatetime = fields[18];
+const buyLimit = fields[21];
+
+let formattedPrizeJson = '';
+try {
+const prizeData = JSON.parse(prizeJsonRaw);
+if (Array.isArray(prizeData)) {
+formattedPrizeJson = prizeData.map(item => {
+if (item.type === 'point' && item.args) {
+// 各mPointId:valueのペアをspanで囲み、white-space: nowrap; を適用して改行を防ぐ
+return `<span style="white-space: nowrap;">mPointId:${item.args.mPointId} value:${item.args.value}</span>`;
+}
+return JSON.stringify(item); // その他の形式はそのまま表示
+}).join('<br>'); // 各項目をHTMLの改行タグで区切る
+} else {
+formattedPrizeJson = JSON.stringify(prizeData, null, 2); // 整形して表示
+}
+} catch (e) {
+formattedPrizeJson = `JSONパースエラー: ${prizeJsonRaw}`;
+console.error("Error parsing prizeJson:", e, prizeJsonRaw);
+}
+
+const tr = document.createElement('tr');
+tr.className = 'hover:bg-gray-50';
+
+const data = [
+id, adminName, name, groupName, description, appealText,
+priority, stepGroup, stepNumber, formattedPrizeJson,
+releaseDatetime, closedDatetime, buyLimit
+];
+
+data.forEach((item, colIndex) => {
+const td = document.createElement('td');
+td.className = 'px-4 py-2 text-sm text-gray-800 align-top border-b border-gray-200';
+// prizeJsonの列は特別なクラスを適用
+if (colIndex === 9) { // prizeJsonのインデックス
+const prizeJsonDiv = document.createElement('div');
+prizeJsonDiv.className = 'prize-json-output';
+// innerHTMLを使用してHTMLタグを解釈させる
+prizeJsonDiv.innerHTML = item;
+td.appendChild(prizeJsonDiv);
+} else {
+td.textContent = item;
+}
+tr.appendChild(td);
+});
+tbody.appendChild(tr);
+});
+outputDiv.appendChild(tableContainer);
+}
+
+/**
+* m_billing_reward_bonus_matching.csv を処理し、表示する関数
+* @param {string} csvText - CSVファイルのテキスト内容
+*/
+function processMatchingCsv(csvText) {
+const outputDiv = document.getElementById('matchingOutput');
+outputDiv.innerHTML = ''; // 既存の表示をクリア
+
+const lines = csvText.trim().split(/\r?\n/);
+if (lines.length === 0) {
+outputDiv.innerHTML = '<p class="text-red-500">CSVファイルにデータがありません。</p>';
+return;
+}
+
+// テーブル要素を作成
+const tableContainer = document.createElement('div');
+tableContainer.className = 'table-container overflow-x-auto'; // 横スクロール対応
+const table = document.createElement('table');
+table.className = 'min-w-full divide-y divide-gray-200 shadow-sm rounded-lg overflow-hidden';
+tableContainer.appendChild(table);
+
+// ヘッダー行
+const thead = document.createElement('thead');
+thead.className = 'bg-gray-200 sticky-header';
+const headerRow = document.createElement('tr');
+const headers = ['id', 'mBillingRewardId (OS: 金額)', 'mBillingRewardBonusId'];
+headers.forEach(headerText => {
+const th = document.createElement('th');
+th.className = 'px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider';
+th.textContent = headerText;
+headerRow.appendChild(th);
+});
+thead.appendChild(headerRow);
+table.appendChild(thead);
+
+// ボディ
+const tbody = document.createElement('tbody');
+tbody.className = 'bg-white divide-y divide-gray-200';
+table.appendChild(tbody);
+
+lines.forEach((line, index) => {
+if (!line.trim()) return; // 空行をスキップ
+
+const fields = parseCsvLine(line);
+
+const id = fields[0];
+const mBillingRewardId = fields[1];
+const mBillingRewardBonusId = fields[2];
+
+let formattedMBillingReward = '不明';
+const rewardInfo = mBillingRewardMap[parseInt(mBillingRewardId, 10)];
+if (rewardInfo) {
+formattedMBillingReward = `${rewardInfo.os}: ${rewardInfo.amount}`;
+}
+
+const tr = document.createElement('tr');
+tr.className = 'hover:bg-gray-50';
+
+const data = [
+id,
+`${mBillingRewardId} (${formattedMBillingReward})`,
+mBillingRewardBonusId
+];
+
+data.forEach(item => {
+const td = document.createElement('td');
+td.className = 'px-4 py-2 text-sm text-gray-800 align-top border-b border-gray-200';
+td.textContent = item;
+tr.appendChild(td);
+});
+tbody.appendChild(tr);
+});
+outputDiv.appendChild(tableContainer);
+}
+
+// イベントリスナーの設定
+document.getElementById('loadBonusCsv').addEventListener('click', () => {
+const fileInput = document.getElementById('bonusFile');
+const file = fileInput.files[0];
+if (file) {
+const reader = new FileReader();
+reader.onload = (e) => {
+processBonusCsv(e.target.result);
+};
+reader.onerror = () => {
+document.getElementById('bonusOutput').innerHTML = '<p class="text-red-500">ファイルの読み込み中にエラーが発生しました。</p>';
+};
+reader.readAsText(file);
+} else {
+document.getElementById('bonusOutput').innerHTML = '<p class="text-red-500">m_billing_reward_bonus.csv ファイルを選択してください。</p>';
+}
+});
+
+document.getElementById('loadMatchingCsv').addEventListener('click', () => {
+const fileInput = document.getElementById('matchingFile');
+const file = fileInput.files[0];
+if (file) {
+const reader = new FileReader();
+reader.onload = (e) => {
+processMatchingCsv(e.target.result);
+};
+reader.onerror = () => {
+document.getElementById('matchingOutput').innerHTML = '<p class="text-red-500">ファイルの読み込み中にエラーが発生しました。</p>';
+};
+reader.readAsText(file);
+} else {
+document.getElementById('matchingOutput').innerHTML = '<p class="text-red-500">m_billing_reward_bonus_matching.csv ファイルを選択してください。</p>';
+}
+});
+</script>
+</body>
+</html>
